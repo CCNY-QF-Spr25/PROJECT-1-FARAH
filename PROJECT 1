@@ -1,0 +1,84 @@
+import yfinance as yf 
+import pandas as pd
+
+ # Define the tickers for the portfolio and the ETFs
+ portfolio tickers = ['MSFT', 'AAPL', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META'] 
+etf_tickers = ['SPY', 'IWM', 'DIA'] 
+
+# Download the historical data for the last 10 years (for total returns, etc.) 
+data = Yf. download (portfolio tickers + etf_tickers, period='10y', adjusted=True) 
+
+# Calculate daily returns 
+Daily reurns= data ['Adj Close'] .pct_change() 
+
+# Portfolio weight (equal weights for all assets) 
+portfolio weight = 1 / Len (portfolio tickers)
+
+ # Calculate Annualized Volatility (Trailing 3 months) # *
+* Volatility_3m = daily returns [-63:]. std () * (252 ** 0.5) window for 3 months
+
+ # Calculate Beta (Trailing 12 months) against SPY, IWM, DIA
+ beta_spy = daily_returns['MSFT'].cov(daily_returns['SPY']) / daily_returns['SPY'].var() beta_iwm = daily_returns['MSFT'].cov(daily_returns['IWM']) / daily_returns['IWM'].var() 
+ beta_dia = daily_returns['MSFT'].cov(daily_returns['DIA']) / daily_returns['DIA'].var()
+
+ # Calculate the Weekly Drawdown (52-week high and low) 
+high_52w = data['Adj Close'].rolling(window=252).max() 
+low_52w = data['Adj Close'].rolling(window=252).min()
+ avg_weekly_drawdown = ((high_52w - low_52w) / 52).mean() max_
+weekly_drawdown = (high_52w - low_52w) / 52 
+
+# Total Return and Annualized Total Return (Trailing 10 years) 
+total_return_10y = (data['Adj Close'][-1] / data['Adj Close'][0]) - 1 
+annualized_return_10y = (data['Adj Close'][-1] / data['Adj Close'][0]) ** (1/10) - 1 
+
+# Prepare the portfolio metrics table 
+portfolio_metrics = pd.DataFrame
+({ 'Ticker': portfolio_tickers, 
+'Portfolio Weight': portfolio_weight,
+ 'Annualized Volatility (3M)': volatility_3m, 
+'Beta against SPY': beta_spy,
+ 'Beta against IWM': beta_iwm,
+ 'Beta against DIA': beta_dia,
+ 'Avg Weekly Drawdown': avg_weekly_drawdown,
+ 'Max Weekly Drawdown': max_weekly_drawdown,
+ 'Total Return (10Y)': total_return_10y, 
+'Annualized Total Return (10Y)': annualized_return_10y }) 
+print("Portfolio Metrics Table:") print(portfolio_metrics)
+
+ # Calculate Portfolio Returns (Average of the 7 assets)
+ portfolio_returns = daily_returns[portfolio_tickers].mean(axis=1)
+
+ # Compare Portfolio with ETFs (SPY, IWM, DIA)
+ correlation_spy = portfolio_returns.corr(daily_returns['SPY'])
+ correlation_iwm = portfolio_returns.corr(daily_returns['IWM']) 
+correlation_dia = portfolio_returns.corr(daily_returns['DIA'])
+ cov_spy_portfolio = portfolio_returns.cov(daily_returns['SPY']) 
+cov_iwm_portfolio = portfolio_returns.cov(daily_returns['IWM'])
+ cov_dia_portfolio = portfolio_returns.cov(daily_returns['DIA']) 
+
+# Calculate Tracking Error (Standard Deviation of Difference in Returns)
+ tracking_error_spy = (portfolio_returns - daily_returns['SPY']).std() * (252 ** 0.5) 
+tracking_error_iwm = (portfolio_returns - daily_returns['IWM']).std() * (252 ** 0.5) 
+tracking_error_dia = (portfolio_returns - daily_returns['DIA']).std() * (252 ** 0.5) 
+
+# Sharpe Ratio (Assuming a 2% Risk-Free Rate) 
+rf_rate = 0.02 
+sharpe_ratio spy = (portfolio_returns.mean() - rf_rate) / portfolio_returns.std() sharpe_ratio_iwm = (portfolio_returns.mean() - rf_rate) / portfolio_returns.std() sharpe_ratio_dia = (portfolio_returns.mean() - rf_rate) / portfolio_returns.std()
+
+# Volatility of the Portfolio and ETFs
+ portfolio_volatility = portfolio_returns.std() * (252 ** 0.5)
+ spy_volatility = daily_returns['SPY'].std() * (252 ** 0.5) 
+iwm_volatility = daily_returns['IWM'].std() * (252 ** 0.5)
+ dia_volatility = daily_returns['DIA'].std() * (252 ** 0.5) 
+
+# Compare the portfolio to the ETFs in a table
+ comparison_table = pd.DataFrame({
+ 'ETF Ticker': etf_tickers,
+ 'Correlation against ETF': [correlation_spy, correlation_iwm, correlation_dia], 
+'Covariance with Portfolio': [cov_spy_portfolio, cov_iwm_portfolio, cov_dia_portfolio], 
+'Tracking Error (10Y)': [tracking_error_spy, tracking_error_iwm, tracking_error_dia], 
+'Sharpe Ratio': [sharpe_ratio_spy, sharpe_ratio_iwm, sharpe_ratio_dia], 
+'Volatility Spread': [portfolio_volatility - spy_volatility, portfolio_volatility –
+ iwm_volatility, portfolio_volatility - dia_volatility] }) 
+print("\nPortfolio vs ETF Comparison Table:")
+ print(comparison_table) # Create Correlation Matrix between the Portfolio Assets and the ETFs correlation_matrix = pd.concat([daily_returns[portfolio_tickers], daily_returns[etf_
