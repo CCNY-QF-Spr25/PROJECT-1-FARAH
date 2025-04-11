@@ -1,0 +1,94 @@
+import numpy as np
+import pandas as pd
+import yfinance as yf
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize
+
+
+#  Select Assets and Fetch Data
+tickers = input("Enter tickers separated by commas (e.g., AAPL,MSFT,GOOGL): ").split(',')
+start_date = input("Enter start date (YYYY-MM-DD): ")
+end_date = input("Enter end date (YYYY-MM-DD): ")
+
+
+try:
+    data = yf.download(tickers, start=start_date, end=end_date)['Adj Close']
+except Exception as e:
+    print(f"Error fetching data: {e}")
+    exit()
+
+#  Calculate Daily Returns and Statistics
+returns = data.pct_change().dropna()
+mean_returns = returns.mean()  # Expected returns
+cov_matrix = returns.cov()     # Risk (Covariance matrix)
+
+#  Simulate Random Portfolios
+num_portfolios = 10000
+results = np.zeros((3, num_portfolios))
+weights_record = []
+
+for i in range(num_portfolios):
+    weights = np.random.random(len(tickers))
+    weights /= np.sum(weights)  # Normalize weights to sum to 1
+    weights_record.append(weights)
+    
+    portfolio_return = np.sum(weights * mean_returns)
+    portfolio_stddev = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+    
+    results[0, i] = portfolio_return
+    results[1, i] = portfolio_stddev
+    results[2, i] = portfolio_return / portfolio_stddev  # Sharpe Ratio
+
+#  Find the Efficient Frontier
+def portfolio_volatility(weights, mean_returns, cov_matrix):
+    return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+
+def min_variance_portfolio(mean_returns, cov_matrix):
+    """Find the weights of the minimum variance portfolio."""
+    num_assets = len(mean_returns)
+    args = (mean_returns, cov_matrix)
+    constraints = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1})  # Weights sum to 1
+    bounds = tuple((0, 1) for _ in range(num_assets))  # No short-selling
+    initial_weights = np.ones(num_assets) / num_assets
+    
+    result = minimize(portfolio_volatility, initial_weights, args=args, method='SLSQP', 
+ bounds=bounds, constraints=constraints)
+    return result.x
+
+# Get minimum variance portfolio weights
+min_var_weights = min_variance_portfolio(mean_returns, cov_matrix)
+min_var_return = np.sum(min_var_weights * mean_returns)
+min_var_stddev = np.sqrt(np.dot(min_var_weights.T, np.dot(cov_matrix, min_var_weights)))
+
+# Find Maximum Sharpe Ratio Portfolio
+max_sharpe_idx = np.argmax(results[2])
+max_sharpe_return = results[0, max_sharpe_idx]
+max_sharpe_stddev = results[1, max_sharpe_idx]
+max_sharpe_weights = weights_record[max_sharpe_idx]
+
+#  Plot the Efficient Frontier
+plt.figure(figsize=(10, 6))
+plt.scatter(results[1, :], results[0, :], c=results[2, :], cmap='viridis', marker='o', alpha=0.5)
+plt.colorbar(label='Sharpe Ratio')
+plt.xlabel('Risk (Standard Deviation)')
+plt.ylabel('Expected Return')
+plt.title('Efficient Frontier')
+
+# Highlight the minimum variance portfolio
+plt.scatter(min_var_stddev, min_var_return, color='red', marker='*', s=300, label='Min Variance Portfolio')
+
+# Highlight the maximum Sharpe ratio portfolio
+plt.scatter(max_sharpe_stddev, max_sharpe_return, color='blue', marker='*', s=300, label='Max Sharpe Ratio Portfolio')
+
+plt.legend()
+plt.savefig('efficient_frontier.png')  # Save the plot
+plt.show()
+
+# Print Portfolio Details
+print("\nMinimum Variance Portfolio:")
+print(f"Return: {min_var_return:.2f}, Risk: {min_var_stddev:.2f}")
+print(f"Weights: {dict(zip(tickers, min_var_weights))}")
+
+print("\nMaximum Sharpe Ratio Portfolio:")
+print(f"Return: {max_sharpe_return:.2f}, Risk: {max_sharpe_stddev:.2f}")
+print(f"Weights: {dict(zip(tickers, max_sharpe_weights))}")
