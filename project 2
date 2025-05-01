@@ -1,0 +1,55 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA']
+
+# Download historical adjusted closing prices (using 'Close' since auto_adjust=True by default)
+price_data = yf.download(tickers, start='2022-01-01', end='2023-01-01')['Close']
+
+# Drop any rows with missing data
+price_data = price_data.dropna()
+
+# Calculate daily percentage returns
+daily_returns = price_data.pct_change().dropna()
+
+# Calculate the average daily returns and the covariance of returns
+mean_daily_returns = daily_returns.mean()
+cov_matrix = daily_returns.cov()
+
+# Simulate portfolios
+num_portfolios = 10000
+
+# Create a list to hold portfolio results
+results = []
+
+# Generate random portfolios
+for _ in range(num_portfolios):
+    # Generate random portfolio weights (percentages for each stock)
+    weights = np.random.random(len(tickers))
+    weights /= np.sum(weights)  # Normalize the weights so they sum to 1
+
+    # Calculate portfolio return and risk (standard deviation)
+    portfolio_return = np.dot(weights, mean_daily_returns) * 252  # Annualize return
+    portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * 252, weights)))  # Annualized risk
+
+    # Sharpe ratio: measures risk-adjusted return
+    sharpe_ratio = portfolio_return / portfolio_risk
+
+    # Append the result
+    results.append([portfolio_return, portfolio_risk, sharpe_ratio])
+
+# Convert the results list to a DataFrame
+portfolio_results = pd.DataFrame(results, columns=['Return', 'Risk', 'Sharpe Ratio'])
+
+# Visualize the efficient frontier
+plt.figure(figsize=(10, 6))
+plt.scatter(portfolio_results['Risk'], portfolio_results['Return'],
+            c=portfolio_results['Sharpe Ratio'], cmap='viridis', marker='o', s=10, alpha=0.3)
+plt.colorbar(label='Sharpe Ratio')  # Color bar to show Sharpe ratio
+plt.title('Efficient Frontier')
+plt.xlabel('Volatility (Risk)')
+plt.ylabel('Expected Return')
+plt.grid(True)
+plt.show()
