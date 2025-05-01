@@ -1,0 +1,54 @@
+import yfinance as yf
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA']
+
+# Download historical adjusted closing prices
+price_data = yf.download(tickers, start='2022-01-01', end='2023-01-01')['Adj Close']
+
+# Calculate daily percentage returns
+daily_returns = price_data.pct_change().dropna()
+
+# Calculate the average daily returns and the covariance of returns
+mean_daily_returns = daily_returns.mean()
+cov_matrix = daily_returns.cov()
+
+# Simulate portfolios
+num_portfolios = 10000
+
+# Create an empty DataFrame to hold portfolio results
+portfolio_results = pd.DataFrame(columns=['Return', 'Risk', 'Sharpe Ratio'], dtype=float)
+
+# Generate random portfolios
+for _ in range(num_portfolios):
+    # Generate random portfolio weights (percentages for each stock)
+    weights = np.random.random(len(tickers))
+    weights /= np.sum(weights)  # Normalize the weights so they sum to 1
+
+    # Calculate portfolio return and risk (standard deviation)
+    portfolio_return = np.dot(weights, mean_daily_returns) * 252  # Annualize return
+    portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * 252, weights)))  # Annualized risk
+
+    # Sharpe ratio: measures risk-adjusted return
+    sharpe_ratio = portfolio_return / portfolio_risk
+
+    # Create a temporary DataFrame for the portfolio
+    portfolio_temp = pd.DataFrame({'Return': [portfolio_return],
+   'Risk': [portfolio_risk],
+    'Sharpe Ratio': [sharpe_ratio]})
+
+    # Concatenate the new portfolio to the portfolio_results DataFrame
+    portfolio_results = pd.concat([portfolio_results, portfolio_temp], ignore_index=True)
+
+# Visualize the efficient frontier
+plt.figure(figsize=(10, 6))
+plt.scatter(portfolio_results['Risk'], portfolio_results['Return'],
+c=portfolio_results['Sharpe Ratio'], cmap='viridis', marker='o', s=10, alpha=0.3)
+plt.colorbar(label='Sharpe Ratio')  # Color bar to show Sharpe ratio
+plt.title('Efficient Frontier')
+plt.xlabel('Volatility (Risk)')
+plt.ylabel('Expected Return')
+plt.grid(True)
+plt.show()
