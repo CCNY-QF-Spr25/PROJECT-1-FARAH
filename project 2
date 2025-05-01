@@ -1,9 +1,9 @@
+
 import yfinance as yf
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
- 
 tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA']
 
 # Download historical adjusted closing prices
@@ -18,7 +18,7 @@ cov_matrix = daily_returns.cov()
 
 # Simulate portfolios
 num_portfolios = 10000
-portfolio_results = pd.DataFrame(columns=['Return', 'Risk', 'Sharpe Ratio'])  # DataFrame to store portfolio data
+portfolio_data = []  # List to collect portfolio results
 
 # Generate random portfolios
 for _ in range(num_portfolios):
@@ -27,18 +27,22 @@ for _ in range(num_portfolios):
     weights /= np.sum(weights)  # Normalize the weights so they sum to 1
 
     # Calculate portfolio return and risk (standard deviation)
-    portfolio_return = np.dot(weights, mean_daily_returns) * 252  # Annualize return (252 trading days in a year)
+    portfolio_return = np.dot(weights, mean_daily_returns) * 252  # Annualize return
     portfolio_risk = np.sqrt(np.dot(weights.T, np.dot(cov_matrix * 252, weights)))  # Annualized risk
 
     # Sharpe ratio: measures risk-adjusted return
     sharpe_ratio = portfolio_return / portfolio_risk
 
-    # Add the results to the DataFrame
-    portfolio_results = portfolio_results.append({'Return': portfolio_return, 'Risk': portfolio_risk, 'Sharpe Ratio': sharpe_ratio}, ignore_index=True)
+    # Store results in list instead of appending to DataFrame
+    portfolio_data.append({'Return': portfolio_return, 'Risk': portfolio_risk, 'Sharpe Ratio': sharpe_ratio})
+
+# Create DataFrame from collected results
+portfolio_results = pd.DataFrame(portfolio_data)
 
 # Visualize the efficient frontier
 plt.figure(figsize=(10, 6))
-plt.scatter(portfolio_results['Risk'], portfolio_results['Return'], c=portfolio_results['Sharpe Ratio'], cmap='viridis', marker='o', s=10, alpha=0.3)
+plt.scatter(portfolio_results['Risk'], portfolio_results['Return'],
+            c=portfolio_results['Sharpe Ratio'], cmap='viridis', marker='o', s=10, alpha=0.3)
 plt.colorbar(label='Sharpe Ratio')  # Color bar to show Sharpe ratio
 plt.title('Efficient Frontier')
 plt.xlabel('Volatility (Risk)')
