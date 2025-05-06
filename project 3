@@ -1,0 +1,97 @@
+import yfinance as yf # type: ignore
+import pandas as pd # type: ignore
+import numpy as np # type: ignore
+import matplotlib.pyplot as plt # type: ignore
+from datetime import datetime
+
+# Step 1-2: Get all SPY constituents from Wikipedia
+sp500_url = 'https://en.wikipedia.org/wiki/List_of_S%26P_500_companies'
+sp500_table = pd.read_html(sp500_url)[0]
+tickers = sp500_table['Symbol'].tolist()
+tickers = [ticker.replace('.', '-') for ticker in tickers]
+tickers.append('SPY')
+
+# Step 3: Download 5 years of adjusted close prices
+end_date = datetime.today()
+start_date = end_date - pd.DateOffset(years=5)
+price_data = yf.download(tickers, start=start_date, end=end_date)['Close']
+price_data = price_data.dropna(axis=1)
+
+# Step 4: Calculate momentum returns
+monthly = price_data.resample('M').last()
+ret_1m = monthly.pct_change(1)
+ret_3m = monthly.pct_change(3)
+ret_6m = monthly.pct_change(6)
+ret_12m = monthly.pct_change(12)
+
+momentum = (ret_1m + ret_3m + ret_6m + ret_12m) / 4
+
+# Step 5: Calculate z-scores
+z_scores = (momentum - momentum.mean(axis=1).values.reshape(-1,1)) /            momentum.std(axis=1).values.reshape(-1,1)
+
+# Step 6-7: Monthly backtest (long top 15, short bottom 15)
+dates, long_r, short_r, long_short_r, spy_r = [], [], [], [], []
+for i in range(12, len(z_scores) - 1):
+    date, next_date = z_scores.index[i], z_scores.index[i+1]
+    z = z_scores.iloc[i]
+    top, bottom = z.nlargest(15).index, z.nsmallest(15).index
+
+    curr, next_ = monthly.loc[date], monthly.loc[next_date]
+    long_ret = (next_[top] - curr[top]) / curr[top]
+    short_ret = (next_[bottom] - curr[bottom]) / curr[bottom]
+    strat_ret = long_ret.mean() - short_ret.mean()
+    spy_ret = (next_['SPY'] - curr['SPY']) / curr['SPY']
+
+    dates.append(next_date)
+    long_r.append(long_ret.mean())
+    short_r.append(short_ret.mean())
+    long_short_r.append(strat_ret)
+    spy_r.append(spy_ret)
+
+# Step 8: Charts
+result_df = pd.DataFrame({
+    'Date': dates,
+    'Long Return': long_r,
+    'Short Return': short_r,
+    'Long-Short Return': long_short_r,
+    'SPY Return': spy_r
+}).set_index('Date')
+
+result_df['Strategy Cumulative'] = (1 + result_df['Long-Short Return']).cumprod()
+result_df['SPY Cumulative'] = (1 + result_df['SPY Return']).cumprod()
+
+# Chart 1: Monthly return bar chart
+plt.figure(figsize=(12, 4))
+colors = ['green' if val > 0 else 'red' for val in result_df['Long-Short Return']]
+plt.bar(result_df.index, result_df['Long-Short Return'], color=colors)
+plt.title('Monthly Long-Short Strategy Returns')
+plt.xlabel('Date')
+plt.ylabel('Return')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Chart 2: Monthly long vs short vs SPY returns
+plt.figure(figsize=(12, 5))
+plt.plot(result_df.index, result_df['Long Return'], label='Long Picks')
+plt.plot(result_df.index, result_df['Short Return'], label='Short Picks')
+plt.plot(result_df.index, result_df['SPY Return'], label='SPY ETF')
+plt.title('Monthly Returns: Long vs Short vs SPY')
+plt.xlabel('Date')
+plt.ylabel('Return')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+# Chart 3: Cumulative performance
+plt.figure(figsize=(12, 6))
+plt.plot(result_df.index, result_df['Strategy Cumulative'], label='Long-Short Strategy')
+plt.plot(result_df.index, result_df['SPY Cumulative'], label='SPY ETF')
+plt.title('Cumulative Return: Long-Short Strategy vs SPY')
+plt.xlabel('Date')
+plt.ylabel('Cumulative Return')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
